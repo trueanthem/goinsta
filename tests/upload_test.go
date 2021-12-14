@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/Davincible/goinsta"
+	"github.com/trueanthem/goinsta"
 )
 
 func TestUploadPhoto(t *testing.T) {

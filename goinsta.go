@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Davincible/goinsta/utilities"
+	"github.com/trueanthem/goinsta/utilities"
 )
 
 // Instagram represent the main API handler

@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/Davincible/goinsta"
+	"github.com/trueanthem/goinsta"
 )
 
 func TestSearchUser(t *testing.T) {

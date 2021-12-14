@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Davincible/goinsta/utilities"
+	"github.com/trueanthem/goinsta/utilities"
 )
 
 type accountResp struct {

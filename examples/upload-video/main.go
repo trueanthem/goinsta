@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Davincible/goinsta/v2"
+	"github.com/trueanthem/goinsta/v2"
 )
 
 var (

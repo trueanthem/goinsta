@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Davincible/goinsta"
-	"github.com/Davincible/goinsta/utilities"
+	"github.com/trueanthem/goinsta"
+	"github.com/trueanthem/goinsta/utilities"
 )
 
 func main() {
