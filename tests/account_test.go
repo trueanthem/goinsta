@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/Davincible/goinsta"
+	"github.com/trueanthem/goinsta"
 )
 
 func TestPendingFriendships(t *testing.T) {

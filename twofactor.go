@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Davincible/goinsta/utilities"
+	"github.com/trueanthem/goinsta/utilities"
 )
 
 type TwoFactorInfo struct {
