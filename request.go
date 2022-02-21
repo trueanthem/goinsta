@@ -3,7 +3,9 @@ package goinsta
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -55,6 +57,13 @@ type reqOptions struct {
 
 	// Timestamp
 	Timestamp string
+
+	// Count the number of times the wrapper has been called.
+	WrapperCount int
+
+	// If Status 429 should be ignored, ErrTooManyRequests. This behaviour should be implemented in
+	//  the wrapper. Goinsta does nothing directly with this value.
+	Ignore429 bool
 }
 
 func (insta *Instagram) sendSimpleRequest(uri string, a ...interface{}) (body []byte, err error) {
@@ -70,6 +79,14 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	if insta == nil {
 		return nil, nil, fmt.Errorf("Error while calling %s: %s", o.Endpoint, ErrInstaNotDefined)
 	}
+
+	// Check if a challenge is in progress, if so wait for it to complete (with timeout)
+	if insta.privacyRequested.Get() && !insta.privacyCalled.Get() {
+		if !insta.checkPrivacy() {
+			return nil, nil, errors.New("Privacy check timedout")
+		}
+	}
+
 	insta.checkXmidExpiry()
 
 	method := "GET"
@@ -100,7 +117,8 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 		o.IgnoreHeaders = append(o.IgnoreHeaders, omitAPIHeadersExclude...)
 	}
 
-	u, err := url.Parse(nu + o.Endpoint)
+	nu = nu + o.Endpoint
+	u, err := url.Parse(nu)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -204,9 +222,9 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 		"X-Fb-Server-Cluster":         "True",
 	}
 	if insta.Account != nil {
-		req.Header.Set("Ig-Intended-User-Id", strconv.Itoa(int(insta.Account.ID)))
+		headers["Ig-Intended-User-Id"] = strconv.Itoa(int(insta.Account.ID))
 	} else {
-		req.Header.Set("Ig-Intended-User-Id", "0")
+		headers["Ig-Intended-User-Id"] = "0"
 	}
 	if contentEncoding != "" {
 		headers["Content-Encoding"] = contentEncoding
@@ -222,17 +240,14 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	}
 	defer resp.Body.Close()
 
+	insta.extractHeaders(resp.Header)
 	body, err = ioutil.ReadAll(resp.Body)
-	if err == nil {
-		err = insta.isError(resp.StatusCode, body, resp.Status, o.Endpoint)
-	}
-	if insta.Debug {
-		insta.debugHandler(fmt.Errorf("Status code: %d : %s, body: %s,", resp.StatusCode, o.Endpoint, string(body)))
-	}
 	if err != nil {
 		return nil, nil, err
 	}
-	insta.extractHeaders(resp.Header)
+
+	// Extract error from request body, if present
+	err = insta.isError(resp.StatusCode, body, resp.Status, o.Endpoint)
 
 	// Decode gzip encoded responses
 	encoding := resp.Header.Get("Content-Encoding")
@@ -250,7 +265,37 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 			return nil, nil, err
 		}
 	}
-	return body, resp.Header.Clone(), err
+
+	// Log complete response body
+	if insta.Debug {
+		r := map[string]interface{}{
+			"status":   resp.StatusCode,
+			"endpoint": o.Endpoint,
+			"body":     string(body),
+		}
+
+		b, err := json.MarshalIndent(r, "", "  ")
+		if err != nil {
+			return nil, nil, err
+		}
+		insta.debugHandler(string(b))
+	}
+
+	// Call Request Wrapper
+	hCopy := resp.Header.Clone()
+	if insta.reqWrapper != nil {
+		o.WrapperCount += 1
+		body, hCopy, err = insta.reqWrapper.GoInstaWrapper(
+			&ReqWrapperArgs{
+				insta:      insta,
+				reqOptions: o,
+				Body:       body,
+				Headers:    hCopy,
+				Error:      err,
+			})
+	}
+
+	return body, hCopy, err
 }
 
 func (insta *Instagram) checkXmidExpiry() {
@@ -291,31 +336,75 @@ func (insta *Instagram) extractHeaders(h http.Header) {
 	extract("Ig-Set-Ig-U-Ds-User-Id", "Ig-U-Ds-User-Id")
 }
 
+func (insta *Instagram) checkPrivacy() bool {
+	d := time.Now().Add(5 * time.Minute)
+	ctx, cancel := context.WithDeadline(context.Background(), d)
+	defer cancel()
+
+	for {
+		select {
+		case <-time.After(3 * time.Second):
+			if insta.privacyRequested.Get() {
+				return true
+			}
+		case <-ctx.Done():
+			return false
+		}
+	}
+}
+
 func (insta *Instagram) isError(code int, body []byte, status, endpoint string) (err error) {
 	switch code {
 	case 200:
 	case 202:
 	case 400:
 		ierr := Error400{Endpoint: endpoint}
-		err = json.Unmarshal(body, &ierr)
-		if err == nil {
-			switch ierr.Message {
-			case "Sorry, this media has been deleted":
-				return ErrMediaDeleted
-			case "challenge_required":
 
-				// This was a first attempt at auto challenge solving
-				// Haven't figured it out yet
-				// insta.WarnHandler(ierr)
-				// ierr.ChallengeError.insta = insta
-				// ierr.ChallengeError.Process()
+		// Ignore error, doesn't matter if types don't always match up
+		json.Unmarshal(body, &ierr)
 
-				return ierr.ChallengeError
-			case "The password you entered is incorrect. Please try again.":
-				return ErrBadPassword
-			default:
-				return ierr
+		switch ierr.GetMessage() {
+		case "login_required":
+			if ierr.ErrorTitle == "You've Been Logged Out" {
+				return ErrLoggedOut
 			}
+			return ErrLoginRequired
+		case "bad_password":
+			return ErrBadPassword
+
+		case "Sorry, this media has been deleted":
+			return ErrMediaDeleted
+
+		case "checkpoint_required":
+			// Usually a request to accept cookies
+			insta.warnHandler(ierr)
+			insta.Checkpoint = &ierr.Checkpoint
+			insta.Checkpoint.insta = insta
+			return ErrCheckpointRequired
+
+		case "checkpoint_challenge_required":
+			fallthrough
+		case "challenge_required":
+			insta.warnHandler(ierr)
+			insta.Challenge = ierr.Challenge
+			insta.Challenge.insta = insta
+			return ErrChallengeRequired
+
+		case "two_factor_required":
+			insta.TwoFactorInfo = ierr.TwoFactorInfo
+			insta.TwoFactorInfo.insta = insta
+			if insta.Account == nil {
+				insta.Account = &Account{
+					ID:       insta.TwoFactorInfo.ID,
+					Username: insta.TwoFactorInfo.Username,
+				}
+			}
+			return Err2FARequired
+		case "Please check the code we sent you and try again.":
+			return ErrInvalidCode
+
+		default:
+			return ierr
 		}
 
 	case 403:
@@ -323,8 +412,18 @@ func (insta *Instagram) isError(code int, body []byte, status, endpoint string) 
 			Code:     403,
 			Endpoint: endpoint,
 		}
-		ierr.Message = string(body)
-		return ierr
+		err = json.Unmarshal(body, &ierr)
+		if err == nil {
+			switch ierr.Message {
+			case "login_required":
+				if ierr.ErrorTitle == "You've Been Logged Out" {
+					return ErrLoggedOut
+				}
+				return ErrLoginRequired
+			}
+			return ierr
+		}
+		return err
 	case 429:
 		return ErrTooManyRequests
 	case 500:

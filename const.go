@@ -142,23 +142,27 @@ const (
 	urlFollowing = "friendships/%d/following/"
 
 	// Users
-	urlUserArchived      = "feed/only_me_feed/"
-	urlUserByName        = "users/%s/usernameinfo/"
-	urlUserByID          = "users/%s/info/"
-	urlUserBlock         = "friendships/block/%d/"
-	urlUserUnblock       = "friendships/unblock/%d/"
-	urlUserMute          = "friendships/mute_posts_or_story_from_follow/"
-	urlUserUnmute        = "friendships/unmute_posts_or_story_from_follow/"
-	urlUserFollow        = "friendships/create/%d/"
-	urlUserUnfollow      = "friendships/destroy/%d/"
-	urlUserFeed          = "feed/user/%d/"
-	urlFriendship        = "friendships/show/%d/"
-	urlFriendshipPending = "friendships/pending/"
-	urlUserStories       = "feed/user/%d/story/"
-	urlUserTags          = "usertags/%d/feed/"
-	urlBlockedList       = "users/blocked_list/"
-	urlUserInfo          = "users/%d/info/"
-	urlUserHighlights    = "highlights/%d/highlights_tray/"
+	urlUserArchived           = "feed/only_me_feed/"
+	urlUserByName             = "users/%s/usernameinfo/"
+	urlUserByID               = "users/%s/info/"
+	urlUserBlock              = "friendships/block/%d/"
+	urlUserUnblock            = "friendships/unblock/%d/"
+	urlUserMute               = "friendships/mute_posts_or_story_from_follow/"
+	urlUserUnmute             = "friendships/unmute_posts_or_story_from_follow/"
+	urlUserFollow             = "friendships/create/%d/"
+	urlUserUnfollow           = "friendships/destroy/%d/"
+	urlUserFeed               = "feed/user/%d/"
+	urlFriendship             = "friendships/show/%d/"
+	urlFriendshipShowMany     = "friendships/show_many/"
+	urlFriendshipPending      = "friendships/pending/"
+	urlFriendshipPendingCount = "friendships/pending_follow_requests_count/"
+	urlFriendshipApprove      = "friendships/approve/%d/"
+	urlFriendshipIgnore       = "friendships/ignore/%d/"
+	urlUserStories            = "feed/user/%d/story/"
+	urlUserTags               = "usertags/%d/feed/"
+	urlBlockedList            = "users/blocked_list/"
+	urlUserInfo               = "users/%d/info/"
+	urlUserHighlights         = "highlights/%d/highlights_tray/"
 
 	// Timeline
 	urlTimeline  = "feed/timeline/"
@@ -221,6 +225,7 @@ const (
 	// Activity
 	urlActivityFollowing = "news/"
 	urlActivityRecent    = "news/inbox/"
+	urlActivitySeen      = "news/inbox_seen/"
 
 	// Inbox
 	urlInbox             = "direct_v2/inbox/"
@@ -240,7 +245,7 @@ const (
 	// Tags
 	urlTagInfo    = "tags/%s/info/"
 	urlTagStories = "tags/%s/story/"
-	urlTagContent = "tags/%s/ranked_sections/"
+	urlTagContent = "tags/%s/sections/"
 
 	// Upload
 	urlUploadPhoto      = "rupload_igphoto/%s"
@@ -263,6 +268,17 @@ var (
 	// Account & Login Errors
 	ErrBadPassword     = errors.New("Password is incorrect")
 	ErrTooManyRequests = errors.New("Too many requests, please wait a few minutes before you try again")
+	ErrLoggedOut       = errors.New("You have been logged out, please log back in.")
+	ErrLoginRequired   = errors.New("You are not logged in, please login")
+
+	ErrChallengeRequired  = errors.New("Challenge required")
+	ErrCheckpointRequired = errors.New("Checkpoint required")
+	ErrCheckpointPassed   = errors.New("A checkpoint was thrown, but goinsta managed to solve it. Please call the function again")
+	ErrChallengeFailed    = errors.New("Failed to solve challenge automatically")
+
+	Err2FARequired = errors.New("Two Factor Autentication required. Please call insta.TwoFactorInfo.Login2FA(code)")
+	Err2FANoCode   = errors.New("2FA seed is not set, and no code was provided. Please do atleast one of them")
+	ErrInvalidCode = errors.New("The security code provided is incorrect")
 
 	// Upload Errors
 	ErrInvalidFormat      = errors.New("Invalid file type, please use one of jpeg, jpg, mp4")
@@ -296,4 +312,10 @@ var (
 	)
 	ErrNoValidLogin    = errors.New("No valid login found")
 	ErrNoProfilePicUrl = errors.New("No profile picture url was found. Please fetch the profile first")
+
+	// Users
+	ErrNoPendingFriendship = errors.New("Unable to approve or ignore friendship for user, as there is no pending friendship request")
+
+	// Headless
+	ErrChromeNotFound = errors.New("To solve challenges a (headless) Chrome browser is used, but none was found. Please install Chromium or Google Chrome, and try again.")
 )

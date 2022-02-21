@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"image"
 	"math"
+	"regexp"
 
 	// Required for getImageDimensionFromReader in jpg and png format
 	"fmt"
@@ -270,4 +271,33 @@ func randNum(l int) string {
 		num += toString(random(0, 9))
 	}
 	return num
+}
+
+// checkHeadlessErr will return a proper error if a chrome browser was not found.
+func checkHeadlessErr(err error) error {
+	// Check if err = Chrome not found
+	if err != nil {
+		if matched, reErr := regexp.Match("executable file not found", []byte(err.Error())); reErr != nil {
+			return reErr
+		} else if matched {
+			return ErrChromeNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+func errIsFatal(err error) bool {
+	switch err {
+	case ErrBadPassword:
+		fallthrough
+	case Err2FARequired:
+		fallthrough
+	case ErrLoggedOut:
+		fallthrough
+	case ErrLoginRequired:
+		return true
+	default:
+		return false
+	}
 }

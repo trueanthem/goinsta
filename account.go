@@ -5,23 +5,11 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/trueanthem/goinsta/utilities"
 )
-
-type accountResp struct {
-	Status  string  `json:"status"`
-	Account Account `json:"logged_in_user"`
-
-	ErrorType         string         `json:"error_type"`
-	Message           string         `json:"message"`
-	TwoFactorRequired bool           `json:"two_factor_required"`
-	TwoFactorInfo     *TwoFactorInfo `json:"two_factor_info"`
-
-	PhoneVerificationSettings phoneVerificationSettings `json:"phone_verification_settings"`
-	Challenge                 *Challenge                `json:"challenge"`
-}
 
 // Account is personal account object
 //
@@ -488,7 +476,7 @@ func (account *Account) Liked() *FeedMedia {
 }
 
 // PendingFollowRequests returns pending follow requests.
-func (account *Account) PendingFollowRequests() ([]*User, error) {
+func (account *Account) PendingFollowRequests() (*PendingRequests, error) {
 	insta := account.insta
 	resp, _, err := insta.sendRequest(
 		&reqOptions{
@@ -499,12 +487,7 @@ func (account *Account) PendingFollowRequests() ([]*User, error) {
 		return nil, err
 	}
 
-	var result struct {
-		Users []*User `json:"users"`
-		// TODO: pagination
-		// TODO: SuggestedUsers
-		Status string `json:"status"`
-	}
+	var result PendingRequests
 	err = json.Unmarshal(resp, &result)
 	if err != nil {
 		return nil, err
@@ -513,11 +496,83 @@ func (account *Account) PendingFollowRequests() ([]*User, error) {
 		return nil, fmt.Errorf("bad status: %s", result.Status)
 	}
 
+	var users []string
 	for _, u := range result.Users {
 		u.insta = insta
+		users = append(users, toString(u.ID))
+	}
+	for _, u := range result.SuggestedUsers.Suggestions {
+		u.User.insta = insta
 	}
 
-	return result.Users, nil
+	friendships, err := account.FriendhipsShowMany(users)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, u := range result.Users {
+		if val, ok := friendships[toString(u.ID)]; ok {
+			u.Friendship = val
+		}
+	}
+
+	return &result, nil
+}
+
+// PendingRequestCount returns the number of open pending friendships as int
+func (account *Account) PendingRequestCount() (int, error) {
+	insta := account.insta
+	resp, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlFriendshipPendingCount,
+		},
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	var result struct {
+		Count  int    `json:"count"`
+		Status string `json:"status"`
+	}
+	err = json.Unmarshal(resp, &result)
+	if err != nil {
+		return 0, err
+	}
+	if result.Status != "ok" {
+		return 0, fmt.Errorf("bad status: %s", result.Status)
+	}
+	return result.Count, nil
+}
+
+func (account *Account) FriendhipsShowMany(userIds []string) (map[string]Friendship, error) {
+	insta := account.insta
+	resp, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlFriendshipShowMany,
+			IsPost:   true,
+			Query: map[string]string{
+				"user_ids": strings.Join(userIds, ","),
+				"_uuid":    insta.uuid,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var result struct {
+		Friendships map[string]Friendship `json:"friendship_statuses"`
+		Status      string                `json:"status"`
+	}
+	err = json.Unmarshal(resp, &result)
+	if err != nil {
+		return nil, err
+	}
+	if result.Status != "ok" {
+		return nil, fmt.Errorf("bad status: %s", result.Status)
+	}
+	return result.Friendships, nil
 }
 
 // Archived returns current account archive feed

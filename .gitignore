@@ -24,6 +24,10 @@ _testmain.go
 *.prof
 
 *.out
+*.bak
+*.jpg
+*.jpeg
+*.png
 
 # ignore Intellij products technical folder
 .idea/
@@ -34,3 +38,8 @@ _testmain.go
 .env
 examples/configs/
 downloads/
+
+notes.txt
+
+// Local file for testing
+local.go

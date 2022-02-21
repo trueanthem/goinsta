@@ -137,7 +137,7 @@ func (h *Hashtag) next(tab string) bool {
 		return false
 	}
 
-	if !(tab == "top" || tab == "recent") {
+	if !(tab == "top" || tab == "recent" || tab == "clips") {
 		h.err = ErrInvalidTab
 		return false
 	}
@@ -165,7 +165,7 @@ func (h *Hashtag) next(tab string) bool {
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlTagContent, name),
-			IsPost:   false,
+			IsPost:   true,
 			Query:    query,
 		},
 	)
