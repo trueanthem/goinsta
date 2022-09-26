@@ -2,6 +2,8 @@ package tests
 
 import (
 	"testing"
+	"time"
+
 
 	"github.com/trueanthem/goinsta"
 )
@@ -77,11 +79,13 @@ func TestIGTVLive(t *testing.T) {
 	}
 
 	if igtv.MoreAvailable {
+		time.Sleep(3 * time.Second)
 		igtv, err := igtv.Live()
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+		} else {
+			t.Logf("Found %d broadcasts. More Available = %v\n", len(igtv.Broadcasts), igtv.MoreAvailable)
 		}
-		t.Logf("Found %d broadcasts. More Available = %v\n", len(igtv.Broadcasts), igtv.MoreAvailable)
 	}
 
 	for _, br := range broadcasts {
@@ -113,6 +117,8 @@ func TestIGTVLive(t *testing.T) {
 }
 
 func TestIGTVDiscover(t *testing.T) {
+	t.Skip("Skipping IGTV Discover, depricated")
+
 	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)

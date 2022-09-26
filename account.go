@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -104,7 +105,7 @@ func (account *Account) Sync() error {
 func (account *Account) ChangePassword(old, new_ string) error {
 	insta := account.insta
 
-	timestamp := strconv.Itoa(int(time.Now().Unix()))
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	old, err := utilities.EncryptPassword(old, insta.pubKey, insta.pubKeyID, timestamp)
 	if err != nil {
 		return err
@@ -181,15 +182,24 @@ func (account *Account) RemoveProfilePic() error {
 func (account *Account) ChangeProfilePic(photo io.Reader) error {
 	insta := account.insta
 
+	buf, err := readFile(photo)
+	if err != nil {
+		return fmt.Errorf("ChangeProfilePic readFile: %w", err)
+	}
+
 	o := UploadOptions{
-		File: photo,
+		insta: insta,
+		File:  photo,
+		buf:   buf,
 	}
-	err := o.uploadPhoto()
-	if err != nil {
-		return err
+
+	t := http.DetectContentType(buf.Bytes())
+	if t != "image/jpeg" {
+		return ErrInvalidImage
 	}
-	if err != nil {
-		return err
+
+	if err = o.uploadPhoto(); err != nil {
+		return fmt.Errorf("ChangeProfilePic uploadPhoto: %w", err)
 	}
 
 	body, _, err := insta.sendRequest(
@@ -203,15 +213,17 @@ func (account *Account) ChangeProfilePic(photo io.Reader) error {
 			IsPost: true,
 		},
 	)
-	if err == nil {
-		resp := profResp{}
-		err = json.Unmarshal(body, &resp)
-		if err == nil {
-			*account = resp.Account
-			account.insta = insta
-		}
+	if err != nil {
+		return fmt.Errorf("ChangeProfilePic unmarshal response json: %w", err)
 	}
-	return err
+
+	resp := profResp{}
+	if err = json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("Failed to unmarshal account from json resposne: %w", err)
+	}
+	*account = resp.Account
+	account.insta = insta
+	return nil
 }
 
 // SetPrivate sets account to private mode.
@@ -263,28 +275,36 @@ func (account *Account) changePublic(endpoint string) error {
 
 // Followers returns a list of user followers.
 //
-// Users.Next can be used to paginate
+// Query can be used to search for a specific user.
+// Be aware that it only matches from the start, e.g.
+// "theprimeagen" will only match "theprime" not "prime".
+// To fetch all user an empty string "".
 //
-// See example: examples/account/followers.go
-func (account *Account) Followers() *Users {
-	endpoint := fmt.Sprintf(urlFollowers, account.ID)
-	users := &Users{}
-	users.insta = account.insta
-	users.endpoint = endpoint
-	return users
+// Users.Next can be used to paginate
+func (account *Account) Followers(query string) *Users {
+	user := &User{
+		insta: account.insta,
+		ID:    account.ID,
+	}
+
+	return user.Followers(query)
 }
 
 // Following returns a list of user following.
 //
-// Users.Next can be used to paginate
+// Query can be used to search for a specific user.
+// Be aware that it only matches from the start, e.g.
+// "theprimeagen" will only match "theprime" not "prime".
+// To fetch all user an empty string "".
 //
-// See example: examples/account/following.go
-func (account *Account) Following() *Users {
-	endpoint := fmt.Sprintf(urlFollowing, account.ID)
-	users := &Users{}
-	users.insta = account.insta
-	users.endpoint = endpoint
-	return users
+// Users.Next can be used to paginate
+func (account *Account) Following(query string, order FollowOrder) *Users {
+	user := &User{
+		insta: account.insta,
+		ID:    account.ID,
+	}
+
+	return user.Following(query, order)
 }
 
 // Feed returns current account feed
@@ -357,31 +377,6 @@ func (account *Account) Saved() *SavedMedia {
 	return &SavedMedia{
 		insta:    account.insta,
 		endpoint: urlFeedSavedPosts,
-	}
-}
-
-type editResp struct {
-	Status  string  `json:"status"`
-	Account Account `json:"user"`
-}
-
-func (account *Account) edit() {
-	insta := account.insta
-	acResp := editResp{}
-	body, _, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: urlCurrentUser,
-			Query: map[string]string{
-				"edit": "true",
-			},
-		},
-	)
-	if err == nil {
-		err = json.Unmarshal(body, &acResp)
-		if err == nil {
-			acResp.Account.insta = insta
-			*account = acResp.Account
-		}
 	}
 }
 
@@ -500,9 +495,6 @@ func (account *Account) PendingFollowRequests() (*PendingRequests, error) {
 	for _, u := range result.Users {
 		u.insta = insta
 		users = append(users, toString(u.ID))
-	}
-	for _, u := range result.SuggestedUsers.Suggestions {
-		u.User.insta = insta
 	}
 
 	friendships, err := account.FriendhipsShowMany(users)

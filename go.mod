@@ -3,8 +3,17 @@ module github.com/trueanthem/goinsta
 go 1.17
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20220217222649-d8c14a5c6edf
-	github.com/chromedp/chromedp v0.7.8
-	github.com/tcnksm/go-input v0.0.0-20180404061846-548a7d7a8ee8
-	golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce // indirect
+	github.com/chromedp/cdproto v0.0.0-20220901095120-1a01299a2163
+	github.com/chromedp/chromedp v0.8.5
+)
+
+require (
+	github.com/chromedp/sysutil v1.0.0 // indirect
+	github.com/gobwas/httphead v0.1.0 // indirect
+	github.com/gobwas/pool v0.2.1 // indirect
+	github.com/gobwas/ws v1.1.0 // indirect
+	github.com/josharian/intern v1.0.0 // indirect
+	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/pkg/errors v0.9.1
+	golang.org/x/sys v0.0.0-20220908164124-27713097b956 // indirect
 )

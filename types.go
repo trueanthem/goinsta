@@ -20,6 +20,7 @@ type ConfigFile struct {
 	Account       *Account          `json:"account"`
 	Device        Device            `json:"device"`
 	TOTP          *TOTP             `json:"totp"`
+	SessionNonce  string            `json:"session"`
 }
 
 type Device struct {
@@ -140,8 +141,6 @@ func (e *Error400) GetMessage() string {
 
 // ChallengeError is error returned by HTTP 400 status code.
 type ChallengeError struct {
-	insta *Instagram
-
 	Challenge struct {
 		URL               string `json:"url"`
 		APIPath           string `json:"api_path"`
@@ -191,7 +190,18 @@ type Location struct {
 type SuggestedUsers struct {
 	Type        int `json:"type"`
 	Suggestions []struct {
-		User            User          `json:"user"`
+		User struct {
+			ID                         interface{}   `json:"pk"`
+			Username                   string        `json:"username"`
+			FullName                   string        `json:"full_name"`
+			IsVerified                 bool          `json:"is_verified"`
+			IsPrivate                  bool          `json:"is_private"`
+			HasHighlightReels          bool          `json:"has_highlight_reels"`
+			HasAnonymousProfilePicture bool          `json:"has_anonymous_profile_picture"`
+			ProfilePicID               string        `json:"profile_pic_id"`
+			ProfilePicURL              string        `json:"profile_pic_url"`
+			AccountBadges              []interface{} `json:"account_badges"`
+		} `json:"user"`
 		Algorithm       string        `json:"algorithm"`
 		SocialContext   string        `json:"social_context"`
 		Icon            string        `json:"icon"`
@@ -279,19 +289,20 @@ type Tag struct {
 
 // Caption is media caption
 type Caption struct {
-	ID              int64  `json:"pk"`
-	UserID          int64  `json:"user_id"`
-	Text            string `json:"text"`
-	Type            int    `json:"type"`
-	CreatedAt       int64  `json:"created_at"`
-	CreatedAtUtc    int64  `json:"created_at_utc"`
-	ContentType     string `json:"content_type"`
-	Status          string `json:"status"`
-	BitFlags        int    `json:"bit_flags"`
-	User            User   `json:"user"`
-	DidReportAsSpam bool   `json:"did_report_as_spam"`
-	MediaID         int64  `json:"media_id"`
-	HasTranslation  bool   `json:"has_translation"`
+	// can be both string or int
+	ID              interface{} `json:"pk"`
+	UserID          int64       `json:"user_id"`
+	Text            string      `json:"text"`
+	Type            int         `json:"type"`
+	CreatedAt       int64       `json:"created_at"`
+	CreatedAtUtc    int64       `json:"created_at_utc"`
+	ContentType     string      `json:"content_type"`
+	Status          string      `json:"status"`
+	BitFlags        int         `json:"bit_flags"`
+	User            User        `json:"user"`
+	DidReportAsSpam bool        `json:"did_report_as_spam"`
+	MediaID         int64       `json:"media_id"`
+	HasTranslation  bool        `json:"has_translation"`
 }
 
 // Mentions is a user being mentioned on media.
@@ -485,4 +496,17 @@ type CommentOffensive struct {
 type TOTP struct {
 	ID   int64  `json:"totp_seed_id"`
 	Seed string `json:"totp_seed"`
+}
+
+type CommentInfo struct {
+	LikesEnabled                   bool          `json:"comment_likes_enabled"`
+	ThreadingEnabled               bool          `json:"comment_threading_enabled"`
+	HasMore                        bool          `json:"has_more_comments"`
+	MaxNumVisiblePreview           int           `json:"max_num_visible_preview_comments"`
+	PreviewComments                []interface{} `json:"preview_comments"`
+	CanViewMorePreview             bool          `json:"can_view_more_preview_comments"`
+	CommentCount                   int           `json:"comment_count"`
+	HideViewAllCommentEntrypoint   bool          `json:"hide_view_all_comment_entrypoint"`
+	InlineComposerDisplayCondition string        `json:"inline_composer_display_condition"`
+	InlineComposerImpTriggerTime   int           `json:"inline_composer_imp_trigger_time"`
 }

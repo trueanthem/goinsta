@@ -140,7 +140,6 @@ func (comments *Comments) Next() bool {
 func (comments *Comments) Sync() {
 	endpoint := fmt.Sprintf(urlCommentSync, comments.item.ID)
 	comments.endpoint = endpoint
-	return
 }
 
 // Add push a comment in media.
@@ -231,7 +230,6 @@ floop:
 // Comment is a type of Media retrieved by the Comments methods
 type Comment struct {
 	insta *Instagram
-	idstr string
 	item  *Item
 
 	ID                             interface{} `json:"pk"`
@@ -257,7 +255,14 @@ type Comment struct {
 	HasMoreHeadChildComments       bool        `json:"has_more_head_child_comments,omitempty"`
 	NumTailChildComments           int         `json:"num_tail_child_comments,omitempty"`
 	NumHeadChildComments           int         `json:"num_head_child_comments,omitempty"`
-	Status                         string      `json:"status"`
+	ShareEnabled                   bool        `json:"share_enabled"`
+	IsCovered                      bool        `json:"is_covered"`
+	PrivateReplyStatus             int64       `json:"private_reply_status"`
+	SupporterInfo                  struct {
+		SupportTier string `json:"support_tier"`
+		BadgesCount int    `json:"badges_count"`
+	} `json:"supporter_info"`
+	Status string `json:"status"`
 }
 
 func (c *Comment) setValues(insta *Instagram) {
